@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Snake</title>
+  <style>
+    :root {
+      --bg: radial-gradient(circle at 20% 20%, #0f172a, #0b1220 40%, #0a0f1c);
+      --panel: rgba(255, 255, 255, 0.06);
+      --accent: #58f99c;
+      --accent-2: #8df4ff;
+      --danger: #ff6b6b;
+      --text: #e9f0ff;
+      --muted: #9fb3c8;
+      --shadow: 0 14px 40px rgba(0, 0, 0, 0.35);
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .app {
+      width: min(1100px, 100%);
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 12px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      letter-spacing: 0.5px;
+    }
+
+    .pill {
+      padding: 10px 14px;
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      backdrop-filter: blur(6px);
+      box-shadow: var(--shadow);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+    }
+
+    .muted { color: var(--muted); }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 12px;
+      padding: 10px 14px;
+      background: linear-gradient(135deg, #2af598, #009efd);
+      color: #08101e;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      box-shadow: var(--shadow);
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button:active { transform: translateY(1px) scale(0.99); }
+
+    main {
+      position: relative;
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    #board {
+      width: clamp(260px, 70vw, 420px);
+      height: auto;
+      display: block;
+      margin: 0 auto;
+      background: radial-gradient(circle at 25% 25%, rgba(88, 249, 156, 0.08), transparent 35%),
+        radial-gradient(circle at 75% 80%, rgba(141, 244, 255, 0.08), transparent 45%),
+        #0b1220;
+      border-radius: 14px;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: rgba(5, 9, 18, 0.72);
+      backdrop-filter: blur(4px);
+      text-align: center;
+      padding: 20px;
+    }
+
+    .panel {
+      max-width: 520px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+
+    .panel h2 { margin-top: 0; margin-bottom: 10px; }
+    .panel p { margin: 6px 0; color: var(--muted); }
+    .panel ul { text-align: left; color: var(--muted); padding-left: 18px; margin: 8px 0 14px; }
+    .hidden { display: none; }
+
+    .stats {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-weight: 600;
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, 60px);
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+    }
+
+    .controls button {
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      box-shadow: none;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    .controls button:active { transform: translateY(1px); }
+
+    @media (max-width: 640px) {
+      header { grid-template-columns: 1fr; }
+      header > * { width: 100%; }
+      .controls { grid-template-columns: repeat(3, 52px); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Neon Snake</h1>
+      <div class="pill stats">
+        <span class="stat">Score: <strong id="score">0</strong></span>
+        <span class="stat">High: <strong id="high-score">0</strong></span>
+        <span class="stat">Speed: <strong id="speed">0</strong></span>
+      </div>
+      <button id="mute-btn" aria-pressed="false">🔊 Sound On</button>
+      <button id="reset-btn">↻ Restart</button>
+    </header>
+
+    <main>
+      <canvas id="board" width="380" height="380" aria-label="Snake game board"></canvas>
+
+      <div id="start-screen" class="overlay">
+        <div class="panel">
+          <h2>Guide the neon serpent</h2>
+          <p>Eat the glowing orbs, avoid walls and yourself. Faster each bite.</p>
+          <ul>
+            <li>Move with Arrow keys or WASD</li>
+            <li>Tap on-screen arrows on mobile</li>
+            <li>Press Space or Enter to start/pause</li>
+            <li>Sound toggle: top right</li>
+          </ul>
+          <button id="start-btn">Start Game</button>
+          <div class="controls" aria-label="On-screen controls">
+            <div></div>
+            <button data-dir="up">↑</button>
+            <div></div>
+            <button data-dir="left">←</button>
+            <button data-dir="down">↓</button>
+            <button data-dir="right">→</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="game-over" class="overlay hidden">
+        <div class="panel">
+          <h2>Game Over</h2>
+          <p class="muted" id="final-score">Score: 0</p>
+          <p class="muted" id="final-high">High score: 0</p>
+          <button id="restart-btn">Play Again</button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+    const highScoreEl = document.getElementById("high-score");
+    const speedEl = document.getElementById("speed");
+    const startScreen = document.getElementById("start-screen");
+    const gameOverScreen = document.getElementById("game-over");
+    const finalScore = document.getElementById("final-score");
+    const finalHigh = document.getElementById("final-high");
+    const startBtn = document.getElementById("start-btn");
+    const restartBtn = document.getElementById("restart-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const muteBtn = document.getElementById("mute-btn");
+
+    const gridCount = 14; // roughly 30% fewer cells for a tighter grid
+    let cellSize = 32;
+    let musicTimer = null;
+
+    const musicPattern = [392, 440, 523, 440, 392, 330, 392, 494];
+    const musicTempo = 420; // ms per note
+
+    const state = {
+      status: "menu",
+      snake: [],
+      dir: { x: 1, y: 0 },
+      nextDir: { x: 1, y: 0 },
+      food: { x: 10, y: 10 },
+      score: 0,
+      highScore: Number(localStorage.getItem("snakeHighScore") || 0),
+      stepMs: 180,
+      minStep: 80,
+      accel: 8,
+      accumulator: 0,
+      lastTime: 0,
+      audioOn: true,
+    };
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playTone(freq, duration, type = "sine", volume = 0.12) {
+      if (!state.audioOn) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.value = volume;
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration / 1000);
+      osc.stop(audioCtx.currentTime + duration / 1000 + 0.02);
+    }
+
+    function startMusic() {
+      stopMusic();
+      if (!state.audioOn) return;
+      let idx = 0;
+      musicTimer = setInterval(() => {
+        if (!state.audioOn) return;
+        const freq = musicPattern[idx % musicPattern.length];
+        playTone(freq, 200, "sine", 0.05);
+        if (idx % musicPattern.length === 0) {
+          playTone(196, 320, "triangle", 0.04);
+        }
+        idx += 1;
+      }, musicTempo);
+    }
+
+    function stopMusic() {
+      if (musicTimer) {
+        clearInterval(musicTimer);
+        musicTimer = null;
+      }
+    }
+
+    function resizeCanvas() {
+      const base = Math.min(window.innerWidth * 0.55, window.innerHeight * 0.4, 400);
+      cellSize = Math.floor(base / gridCount);
+      const size = cellSize * gridCount;
+      canvas.width = size;
+      canvas.height = size;
+    }
+
+    function resetState() {
+      state.snake = [
+        { x: 6, y: 7 },
+        { x: 5, y: 7 },
+        { x: 4, y: 7 },
+      ];
+      state.dir = { x: 1, y: 0 };
+      state.nextDir = { x: 1, y: 0 };
+      state.food = randomFreeCell();
+      state.score = 0;
+      state.stepMs = 180;
+      state.accumulator = 0;
+      state.lastTime = 0;
+    }
+
+    function randomFreeCell() {
+      while (true) {
+        const pos = {
+          x: Math.floor(Math.random() * gridCount),
+          y: Math.floor(Math.random() * gridCount),
+        };
+        const hitsSnake = state.snake.some((p) => p.x === pos.x && p.y === pos.y);
+        if (!hitsSnake) return pos;
+      }
+    }
+
+    function startGame() {
+      resetState();
+      state.status = "playing";
+      startScreen.classList.add("hidden");
+      gameOverScreen.classList.add("hidden");
+      audioCtx.resume();
+      startMusic();
+    }
+
+    function endGame() {
+      state.status = "over";
+      finalScore.textContent = `Score: ${state.score}`;
+      finalHigh.textContent = `High score: ${state.highScore}`;
+      gameOverScreen.classList.remove("hidden");
+      stopMusic();
+      playTone(110, 320, "sawtooth");
+    }
+
+    function trySetDir(x, y) {
+      if (x === -state.dir.x && y === -state.dir.y) return; // block immediate reverse
+      state.nextDir = { x, y };
+    }
+
+    function step() {
+      state.dir = state.nextDir;
+      const head = state.snake[0];
+      const next = { x: head.x + state.dir.x, y: head.y + state.dir.y };
+
+      const hitWall = next.x < 0 || next.y < 0 || next.x >= gridCount || next.y >= gridCount;
+      const hitSelf = state.snake.some((p) => p.x === next.x && p.y === next.y);
+      if (hitWall || hitSelf) {
+        endGame();
+        return;
+      }
+
+      const ate = next.x === state.food.x && next.y === state.food.y;
+      state.snake.unshift(next);
+      if (ate) {
+        state.score += 10;
+        state.highScore = Math.max(state.highScore, state.score);
+        localStorage.setItem("snakeHighScore", state.highScore);
+        state.food = randomFreeCell();
+        state.stepMs = Math.max(state.minStep, state.stepMs - state.accel);
+        playTone(660, 120, "triangle");
+      } else {
+        state.snake.pop();
+      }
+    }
+
+    function drawGrid() {
+      ctx.fillStyle = "rgba(255,255,255,0.02)";
+      for (let i = 0; i < gridCount; i++) {
+        for (let j = 0; j < gridCount; j++) {
+          if ((i + j) % 2 === 0) {
+            ctx.fillRect(i * cellSize, j * cellSize, cellSize, cellSize);
+          }
+        }
+      }
+    }
+
+    function drawSnake() {
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, "#58f99c");
+      gradient.addColorStop(1, "#8df4ff");
+      state.snake.forEach((p, idx) => {
+        ctx.fillStyle = idx === 0 ? "#f8ffb0" : gradient;
+        ctx.fillRect(p.x * cellSize + 2, p.y * cellSize + 2, cellSize - 4, cellSize - 4);
+      });
+    }
+
+    function drawFood() {
+      ctx.save();
+      ctx.translate(state.food.x * cellSize + cellSize / 2, state.food.y * cellSize + cellSize / 2);
+      ctx.fillStyle = "#ffb347";
+      ctx.beginPath();
+      ctx.arc(0, 0, cellSize * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffd166";
+      ctx.beginPath();
+      ctx.arc(0, 0, cellSize * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
+      drawFood();
+      drawSnake();
+    }
+
+    function updateUI() {
+      scoreEl.textContent = state.score;
+      highScoreEl.textContent = state.highScore;
+      speedEl.textContent = `${Math.round(1000 / state.stepMs)}x`;
+    }
+
+    function loop(timestamp) {
+      if (!state.lastTime) state.lastTime = timestamp;
+      const delta = timestamp - state.lastTime;
+      state.lastTime = timestamp;
+
+      if (state.status === "playing") {
+        state.accumulator += delta;
+        while (state.accumulator >= state.stepMs) {
+          step();
+          state.accumulator -= state.stepMs;
+          if (state.status === "over") break;
+        }
+      }
+
+      draw();
+      updateUI();
+      requestAnimationFrame(loop);
+    }
+
+    function handleKey(e) {
+      const key = e.key.toLowerCase();
+      const handledKeys = ["arrowup", "w", "arrowdown", "s", "arrowleft", "a", "arrowright", "d", " ", "enter"];
+      if (handledKeys.includes(key)) e.preventDefault();
+      if (["arrowup", "w"].includes(key)) trySetDir(0, -1);
+      if (["arrowdown", "s"].includes(key)) trySetDir(0, 1);
+      if (["arrowleft", "a"].includes(key)) trySetDir(-1, 0);
+      if (["arrowright", "d"].includes(key)) trySetDir(1, 0);
+      if ([" ", "enter"].includes(key)) {
+        if (state.status === "menu" || state.status === "over") startGame();
+      }
+    }
+
+    function bindControls() {
+      window.addEventListener("keydown", handleKey);
+      startBtn.addEventListener("click", startGame);
+      restartBtn.addEventListener("click", startGame);
+      resetBtn.addEventListener("click", startGame);
+      muteBtn.addEventListener("click", () => {
+        state.audioOn = !state.audioOn;
+        muteBtn.textContent = state.audioOn ? "🔊 Sound On" : "🔈 Sound Off";
+        muteBtn.setAttribute("aria-pressed", (!state.audioOn).toString());
+        if (state.audioOn) {
+          audioCtx.resume();
+          if (state.status === "playing") startMusic();
+        } else {
+          stopMusic();
+        }
+      });
+
+      document.querySelectorAll(".controls button[data-dir]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const dir = btn.dataset.dir;
+          if (dir === "up") trySetDir(0, -1);
+          if (dir === "down") trySetDir(0, 1);
+          if (dir === "left") trySetDir(-1, 0);
+          if (dir === "right") trySetDir(1, 0);
+          if (state.status !== "playing") startGame();
+        });
+      });
+
+      window.addEventListener("resize", () => {
+        resizeCanvas();
+      });
+    }
+
+    resizeCanvas();
+    bindControls();
+    resetState();
+    updateUI();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
